@@ -11,7 +11,7 @@ class google_translate(object):
     """
     Google translate API: https://translate.google.cn/translate_a/single?
     How to calculate the value 'tk'?: self.get_tk
-    How to determine if it is Chinese: self.is_chinese
+    How to determine if the text of inputing is Chinese: self.is_chinese
     How to translate：self.translate: self.translate
     """
     def __init__(self):
