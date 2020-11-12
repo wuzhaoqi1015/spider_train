@@ -16,6 +16,10 @@ class google_translate(object):
         self.faker = Faker()
         self.url = 'https://translate.google.cn/translate_a/single?client=t&sl=auto&tl={}&hl=zh-CN' \
                    '&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&tk={}&q={}'
+        self.headers = {
+            'User-Agent': self.faker.user_agent(),
+        }
+        self.languages = ['zh-CN', 'en']
         self.gg_js_code = '''
                 function TL(a) {
                     var k = "";
@@ -71,22 +75,18 @@ class google_translate(object):
         return tk
 
     def translate(self, text):
-        headers = {
-            'User-Agent': self.faker.user_agent(),
-        }
         if len(text) > 4891:
-            raise RuntimeError('The length of word should be less than 4891...')
-        languages = ['zh-CN', 'en']
+            raise RuntimeError('The length of text should be less than 4891...')
         if not self.isChinese(text):
-            target_language = languages[0]
+            target_language = self.languages[0]
         else:
-            target_language = languages[1]
-        res = requests.get(self.url.format(target_language, self.getTk(text), text), headers=headers)
+            target_language = self.languages[1]
+        res = requests.get(self.url.format(target_language, self.getTk(text), text), headers=self.headers)
         print(res.json()[0][0][0])
         return [res.json()[0][0][0]]
 
 
 if __name__ == "__main__":
     word = input("请输入需要翻译的单词:")
-    test = google_translate()
-    test.translate(word)
+    t = google_translate()
+    t.translate(word)
