@@ -88,5 +88,5 @@ class google_translate(object):
 
 if __name__ == "__main__":
     word = input("请输入需要翻译的单词:")
-    t = google_translate()
-    t.translate(word)
+    test = google_translate()
+    test.translate(word)
