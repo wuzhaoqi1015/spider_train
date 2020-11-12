@@ -1,10 +1,6 @@
 # -*- codeing = utf-8 -*-
 # @Author : Wuzhaoqi
 # @Software : PyCharm
-"""
-Google translate API: https://translate.google.cn/translate_a/single?
-key: how to clculate the tk?
-"""
 
 import js2py
 import requests
@@ -12,6 +8,12 @@ from faker import Faker
 
 
 class google_translate(object):
+    """
+    Google translate API: https://translate.google.cn/translate_a/single?
+    How to calculate the value 'tk'?: self.get_tk
+    How to determine if it is Chinese: self.is_chinese
+    How to translate：self.translate: self.translate
+    """
     def __init__(self):
         self.faker = Faker()
         self.url = 'https://translate.google.cn/translate_a/single?client=t&sl=auto&tl={}&hl=zh-CN' \
@@ -61,13 +63,13 @@ class google_translate(object):
             '''
 
     @staticmethod
-    def isChinese(text):
+    def is_chinese(text):
         for w in text:
             if '\u4e00' <= w <= '\u9fa5':
                 return True
         return False
 
-    def getTk(self, text):
+    def get_tk(self, text):
         evaljs = js2py.EvalJs()
         js_code = self.gg_js_code
         evaljs.execute(js_code)
@@ -77,11 +79,11 @@ class google_translate(object):
     def translate(self, text):
         if len(text) > 4891:
             raise RuntimeError('The length of text should be less than 4891...')
-        if not self.isChinese(text):
+        if not self.is_chinese(text):
             target_language = self.languages[0]
         else:
             target_language = self.languages[1]
-        res = requests.get(self.url.format(target_language, self.getTk(text), text), headers=self.headers)
+        res = requests.get(self.url.format(target_language, self.get_tk(text), text), headers=self.headers)
         print(res.json()[0][0][0])
         return [res.json()[0][0][0]]
 
