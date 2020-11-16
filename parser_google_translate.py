@@ -7,11 +7,11 @@ import requests
 from faker import Faker
 
 
-class google_translate(object):
+class GoogleTranslate(object):
     """
     Google translate API: https://translate.google.cn/translate_a/single?
     How to calculate the value 'tk'?: self.get_tk
-    How to determine if the text is Chinese: self.is_chinese
+    How to determine if it is Chinese: self.is_chinese
     How to translate：self.translate: self.translate
     """
     def __init__(self):
@@ -21,7 +21,7 @@ class google_translate(object):
         self.headers = {
             'User-Agent': self.faker.user_agent(),
         }
-        self.languages = ['zh-CN', 'en']
+        self.languages = ['zh-CN', 'en', 'fr', 'de', 'ja', 'ko', 'ru', 'es']
         self.gg_js_code = '''
                 function TL(a) {
                     var k = "";
@@ -76,13 +76,18 @@ class google_translate(object):
         tk = evaljs.TL(text)
         return tk
 
-    def translate(self, text):
+    def translate(self, text, tl=None):
+        if tl not in self.languages:
+            raise ValueError("the language must be{}".format(self.languages))
         if len(text) > 4891:
             raise RuntimeError('The length of text should be less than 4891...')
-        if not self.is_chinese(text):
-            target_language = self.languages[0]
+        if tl is None:
+            if not self.is_chinese(text):
+                target_language = self.languages[0]
+            else:
+                target_language = self.languages[1]
         else:
-            target_language = self.languages[1]
+            target_language = tl
         res = requests.get(self.url.format(target_language, self.get_tk(text), text), headers=self.headers)
         print(res.json()[0][0][0])
         return [res.json()[0][0][0]]
@@ -90,5 +95,5 @@ class google_translate(object):
 
 if __name__ == "__main__":
     word = input("请输入需要翻译的单词:")
-    t = google_translate()
+    t = GoogleTranslate()
     t.translate(word)
