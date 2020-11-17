@@ -88,6 +88,12 @@ class GoogleTranslate(object):
         return tk
 
     def translate(self, text, tl=None, sl='auto'):
+        """
+        :param text: the text you want to translate
+        :param tl: the target language
+        :param sl: the source language
+        :return: the text was transalated
+        """
         if len(text) > 4891:
             raise RuntimeError('The length of text should be less than 4891...')
         if tl is None:
