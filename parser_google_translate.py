@@ -94,6 +94,6 @@ class GoogleTranslate(object):
 
 
 if __name__ == "__main__":
-    word = input("请输入需要翻译的单词:")
+    word = input("请输入需要翻译的句子:")
     t = GoogleTranslate()
     t.translate(word)
