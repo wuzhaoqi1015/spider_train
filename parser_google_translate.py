@@ -16,12 +16,23 @@ class GoogleTranslate(object):
     """
     def __init__(self):
         self.faker = Faker()
-        self.url = 'https://translate.google.cn/translate_a/single?client=t&sl=auto&tl={}&hl=zh-CN' \
+        self.url = 'https://translate.google.cn/translate_a/single?client=t&sl={}&tl={}&hl=zh-CN' \
                    '&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&tk={}&q={}'
         self.headers = {
             'User-Agent': self.faker.user_agent(),
         }
-        self.languages = ['zh-CN', 'en', 'fr', 'de', 'ja', 'ko', 'ru', 'es']
+        self.languages = ['zh-CN', 'zh-TW', 'en', 'fr', 'de', 'ja', 'ko', 'ru', 'es']
+        """
+        zh-CN: 中文简体
+        zh-TW：中文繁体
+        en: 英语
+        fr: 法语
+        de: 德语
+        ja: 日语
+        ko: 韩语
+        ru: 俄语
+        es: 西班牙语
+        """
         self.gg_js_code = '''
                 function TL(a) {
                     var k = "";
@@ -76,9 +87,7 @@ class GoogleTranslate(object):
         tk = evaljs.TL(text)
         return tk
 
-    def translate(self, text, tl=None):
-        if tl not in self.languages:
-            raise ValueError("the language must be{}".format(self.languages))
+    def translate(self, text, tl=None, sl='auto'):
         if len(text) > 4891:
             raise RuntimeError('The length of text should be less than 4891...')
         if tl is None:
@@ -87,13 +96,17 @@ class GoogleTranslate(object):
             else:
                 target_language = self.languages[1]
         else:
+            if tl not in self.languages:
+                raise ValueError("the language must be{}".format(self.languages))
             target_language = tl
-        res = requests.get(self.url.format(target_language, self.get_tk(text), text), headers=self.headers)
-        print(res.json()[0][0][0])
-        return [res.json()[0][0][0]]
+        res = requests.get(self.url.format(sl, target_language, self.get_tk(text), text), headers=self.headers)
+        return res.json()[0][0][0]
 
 
 if __name__ == "__main__":
-    word = input("请输入需要翻译的句子:")
     t = GoogleTranslate()
-    t.translate(word)
+    text_en = 'The quick brown fox jumped over the lazy dog'
+    text_ja = t.translate(text_en, tl='ja')
+    text_de = t.translate(text_ja, tl='de')
+    text_fr = t.translate(text_de, tl='fr')
+    text_en_new = t.translate(text_fr, tl='en')
