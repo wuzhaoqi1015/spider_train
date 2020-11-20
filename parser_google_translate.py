@@ -25,7 +25,8 @@ es: 西班牙语
 class GoogleTranslate(object):
     """
     Google translate API: https://translate.google.cn/translate_a/single?
-    How to calculate the value 'tk'?: self.get_tk
+    How to calculate the token of sentence: self.calculate_text_token
+    How to get the seed token: self.get_token_key_seed
     How to determine if it is Chinese: self.is_chinese
     How to translate：self.translate: self.translate
     """
