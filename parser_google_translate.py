@@ -1,10 +1,25 @@
 # -*- codeing = utf-8 -*-
 # @Author : Wuzhaoqi
 # @Software : PyCharm
-
-import js2py
+import re
+import math
+import time
+import nltk
+import calendar
 import requests
 from faker import Faker
+
+"""
+zh-CN: 中文简体
+zh-TW：中文繁体
+en: 英语
+fr: 法语
+de: 德语
+ja: 日语
+ko: 韩语
+ru: 俄语
+es: 西班牙语
+"""
 
 
 class GoogleTranslate(object):
@@ -15,64 +30,34 @@ class GoogleTranslate(object):
     How to translate：self.translate: self.translate
     """
     def __init__(self):
-        self.faker = Faker()
-        self.url = 'https://translate.google.cn/translate_a/single?client=t&sl={}&tl={}&hl=zh-CN' \
-                   '&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&tk={}&q={}'
-        self.headers = {
-            'User-Agent': self.faker.user_agent(),
-        }
-        self.languages = ['zh-CN', 'zh-TW', 'en', 'fr', 'de', 'ja', 'ko', 'ru', 'es']
-        """
-        zh-CN: 中文简体
-        zh-TW：中文繁体
-        en: 英语
-        fr: 法语
-        de: 德语
-        ja: 日语
-        ko: 韩语
-        ru: 俄语
-        es: 西班牙语
-        """
-        self.gg_js_code = '''
-                function TL(a) {
-                    var k = "";
-                    var b = 406644;
-                    var b1 = 3293161072;
-                    var jd = ".";
-                    var $b = "+-a^+6";
-                    var Zb = "+-3^+b+-f";
-                    for (var e = [], f = 0, g = 0; g < a.length; g++) {
-                        var m = a.charCodeAt(g);
-                        128 > m ? e[f++] = m : (2048 > m ? e[f++] = m >> 6 | 192 : (55296 == (m & 64512) && g + 1 < 
-                        a.length && 56320 == (a.charCodeAt(g + 1) & 64512) ? (m = 65536 + ((m & 1023) << 10) +
-                         (a.charCodeAt(++g) & 1023),
-                        e[f++] = m >> 18 | 240,
-                        e[f++] = m >> 12 & 63 | 128) : e[f++] = m >> 12 | 224,
-                        e[f++] = m >> 6 & 63 | 128),
-                        e[f++] = m & 63 | 128)
-                    }
-                    a = b;
-                    for (f = 0; f < e.length; f++) a += e[f],
-                    a = RL(a, $b);
-                    a = RL(a, Zb);
-                    a ^= b1 || 0;
-                    0 > a && (a = (a & 2147483647) + 2147483648);
-                    a %= 1E6;
-                    return a.toString() + jd + (a ^ b)
-                };
-                function RL(a, b) {
-                    var t = "a";
-                    var Yb = "+";
-                    for (var c = 0; c < b.length - 2; c += 3) {
-                        var d = b.charAt(c + 2),
-                        d = d >= t ? d.charCodeAt(0) - 87 : Number(d),
-                        d = b.charAt(c + 1) == Yb ? a >>> d: a << d;
-                        a = b.charAt(c) == Yb ? a + d & 4294967295 : a ^ d
-                    }
-                    return a
-                }
-            '''
+        self.SALT_1 = "+-a^+6"
+        self.SALT_2 = "+-3^+b+-f"
+        self.token_key = None
+        self.headers = self.get_random_user_agent()
+        self.languages = ["zh-CN", "zh-TW", "en", "fr", "de", "ja", "ko", "ru", "es"]
+        self.template_url = "https://translate.google.cn/translate_a/single?client=t&sl={}&tl={}&hl=zh-CN" \
+                            "&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&tk={}&q={}"
 
+    """ Functions used by the token calculation algorithm """
+    @staticmethod
+    def rshift(val, n):
+        return val >> n if val >= 0 else (val + 0x100000000) >> n
+
+    def work_token(self, a, seed):
+        for i in range(0, len(seed) - 2, 3):
+            char = seed[i + 2]
+            d = ord(char[0]) - 87 if char >= "a" else int(char)
+            d = self.rshift(a, d) if seed[i + 1] == "+" else a << d
+            a = a + d & 4294967295 if seed[i] == "+" else a ^ d
+        return a
+
+    """ Get the random user agent to crate the headers of http get """
+    @staticmethod
+    def get_random_user_agent():
+        faker = Faker()
+        return {'User-Agent': faker.user_agent(), }
+
+    """ Determine whether the sentence is Chinese """
     @staticmethod
     def is_chinese(text):
         for w in text:
@@ -80,14 +65,70 @@ class GoogleTranslate(object):
                 return True
         return False
 
-    def get_tk(self, text):
-        evaljs = js2py.EvalJs()
-        js_code = self.gg_js_code
-        evaljs.execute(js_code)
-        tk = evaljs.TL(text)
-        return tk
+    """ Get the current token """
+    def get_token_key_seed(self):
+        """
+        :return: Current time token
+        """
+        if self.token_key is not None:
+            return self.token_key
 
-    def translate(self, text, tl=None, sl='auto'):
+        faker = Faker()
+        headers = {'User-Agent': faker.user_agent(), }
+        response = requests.get("https://translate.google.com/", headers=headers)
+        tkk_expr = re.search("(tkk:.*?),", response.text)
+        if not tkk_expr:
+            raise ValueError(
+                "Unable to find token seed! Did https://translate.google.com change?"
+            )
+
+        tkk_expr = tkk_expr.group(1)
+        try:
+            # Grab the token directly if already generated by function call
+            result = re.search(r"\d{6}\.[0-9]+", tkk_expr).group(0)
+        except AttributeError:
+            # Generate the token using algorithm
+            timestamp = calendar.timegm(time.gmtime())
+            hours = int(math.floor(timestamp / 3600))
+            a = re.search(r"a\\\\x3d(-?\d+);", tkk_expr).group(1)
+            b = re.search(r"b\\\\x3d(-?\d+);", tkk_expr).group(1)
+
+            result = str(hours) + "." + str(int(a) + int(b))
+
+        self.token_key = result
+        return result
+
+    """ Calculate the token of sentencet """
+    def calculate_text_token(self, sentence, seed=None):
+        """
+        :param seed: the token seed in current time
+        :param sentence: the text you want to calculate its token
+        :return: the token of the text of input
+        """
+        if seed is None:
+            seed = self.get_token_key_seed()
+        try:
+            text_byte = bytearray(sentence.encode("UTF-8"))
+        except UnicodeDecodeError:
+            # This will probably only occur when d is actually a str containing UTF-8 chars, which means we don't need
+            # to encode.
+            text_byte = bytearray(sentence)
+        # calculate
+        [first_seed, second_seed] = seed.split(".")
+        a = int(first_seed)
+        for value in text_byte:
+            a += value
+            a = self.work_token(a, self.SALT_1)
+        a = self.work_token(a, self.SALT_2)
+        a ^= int(second_seed)
+        if 0 > a:
+            a = (a & 2147483647) + 2147483648
+        a %= 1E6
+        a = int(a)
+        return str(a) + "." + str(a ^ int(first_seed))
+
+    """ Translate """
+    def translate(self, text, tl=None, sl=None):
         """
         :param text: the text you want to translate
         :param tl: the target language
@@ -96,23 +137,43 @@ class GoogleTranslate(object):
         """
         if len(text) > 4891:
             raise RuntimeError('The length of text should be less than 4891...')
+        # read the target language
         if tl is None:
             if not self.is_chinese(text):
                 target_language = self.languages[0]
             else:
-                target_language = self.languages[1]
+                target_language = self.languages[2]
         else:
             if tl not in self.languages:
                 raise ValueError("the language must be{}".format(self.languages))
-            target_language = tl
-        res = requests.get(self.url.format(sl, target_language, self.get_tk(text), text), headers=self.headers)
-        return res.json()[0][0][0]
+            else:
+                target_language = tl
+        # read the source language
+        if sl is None:
+            source_language = "auto"
+        else:
+            source_language = sl
+        # translate each sentence in the text
+        sentence_list = nltk.sent_tokenize(text)
+        translated_text = ''
+        for sentence in sentence_list:
+            sentence_token = self.calculate_text_token(sentence)
+            target_url = self.template_url.format(source_language, target_language, sentence_token, sentence)
+            response = requests.get(target_url, headers=self.headers)
+            translated_text += response.json()[0][0][0]
+        return translated_text
 
 
 if __name__ == "__main__":
+    # The text you want to translate
+    test_text = "once upon a time there was a mountain, on the mountain was a temple, " \
+                "in the temple was a young monk and a old monk."
+    # Crate the translate object
     t = GoogleTranslate()
-    text_en = 'The quick brown fox jumped over the lazy dog'
-    text_ja = t.translate(text_en, tl='ja')
-    text_de = t.translate(text_ja, tl='de')
-    text_fr = t.translate(text_de, tl='fr')
-    text_en_new = t.translate(text_fr, tl='en')
+
+    # If you use the default parameters, all languages will be recognized and return Chinese
+    text_cn = t.translate(test_text)
+    print(text_cn)
+    # You can set the param 'tl' to declare the target language and 'sl' to declare the source language of your text
+    text_ja = t.translate(test_text, tl="ja", sl="en")
+    print(text_ja)
