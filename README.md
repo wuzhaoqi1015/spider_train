@@ -1,4 +1,4 @@
-# google_translate
+# GoogleTranslate
 Call the google translate API to translate sentences.
 # Usage
 ```python
