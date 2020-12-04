@@ -140,17 +140,11 @@ class GoogleTranslate(object):
             raise RuntimeError('The length of text should be less than 4891...')
         # read the target language
         if tl is None:
-            if not self.is_chinese(text):
-                target_language = "zh-CN"
-            else:
-                target_language = "en"
+            target_language = "zh-CN" if not self.is_chinese(text) else "en"
         else:
             target_language = tl
         # read the source language
-        if sl is None:
-            source_language = "auto"
-        else:
-            source_language = sl
+        source_language = "auto" if sl is None else sl
         # translate each sentence in the text
         sentence_list = nltk.sent_tokenize(text)
         translated_text = ''
